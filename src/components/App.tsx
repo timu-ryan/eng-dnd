@@ -8,12 +8,18 @@ export const App = () => {
 
   return (
     <>
-      <header className={classes.header}>
-        <Link to="/" className={classes.link}>Main</Link>
-        <Link to="/shop" className={classes.link}>Shop</Link>
-        <Link to="/about" className={classes.link}>About</Link>
-      </header>
+      <Header />
       <Outlet />
     </>
+  )
+}
+
+function Header() {
+  return (
+    <header className={classes.header}>
+      <Link to="/" className={classes.link}>Main</Link>
+      <Link to="/shop" className={classes.link}>Shop</Link>
+      <Link to="/about" className={classes.link}>About</Link>
+    </header>
   )
 }

@@ -5,6 +5,7 @@ import { LazyAbout } from "@/pages/about/About.lazy";
 import { Shop } from "@/pages/shop";
 import { Suspense } from "react";
 import {Home} from "@/pages/home/Home";
+import './index.module.scss'
 
 const root = document.getElementById('root');
 
