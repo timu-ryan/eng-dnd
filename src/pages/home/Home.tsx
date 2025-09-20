@@ -99,6 +99,7 @@ export const Home = () => {
   }, []);
 
   function handleRemoveWordFromStorage(e: MouseEvent) {
+    setIsCorrect(null)
     const currentWord: Word = {
       id: Number(e.currentTarget.id),
       word: e.currentTarget.innerHTML
