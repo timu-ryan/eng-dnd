@@ -1,6 +1,6 @@
 
 import cls from './Home.module.scss'
-import {useRef, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import type {PointerEvent} from "react";
 
 type Word = {
@@ -27,9 +27,10 @@ const DELETE_DELAY = 500;
 
 
 // TODO: вынести в хуки
-// TODO:
-//  при переносе элементов из контейнера нужно возвращать в начальное положение
-//  как отловить выход из контейнера если Mouse Move ловит только внутри контейнера
+// TODO: проверить вынос за контейнер и очистить event listener
+// TODO: проверить работу на телефоне
+
+
 export const Home = () => {
 
   const [wordList, setWordList] = useState<Word[]>(initialWordList);
@@ -39,15 +40,44 @@ export const Home = () => {
   const storageRef = useRef<HTMLUListElement>(null);
   const dragZoneContainerRef = useRef<HTMLDivElement>(null);
 
-  // const [overlayPos, setOverlayPos] = useState<Coord>({x:0,y:0});
   const overlayPosRef = useRef<Coord>({ x: 0, y: 0 });
   const overlayElRef = useRef<HTMLDivElement | null>(null);
 
-  const [offset, setOffset] = useState<Coord>({x:0,y:0});
-
   // для возврата слова в начальное положение, если оно не попало в storage
   const [isMouseUp, setIsMouseUp] = useState<boolean>(false);
-  const [dragStartCoord, setDragStartCoord] = useState<Coord>({x:0,y:0});
+
+  const dragStartRef = useRef<Coord>({x:0,y:0});
+  const offsetRef = useRef<Coord>({x:0,y:0});
+
+
+  // отловить курсор вне drag контейнера
+  useEffect(() => {
+    window.addEventListener("pointermove", (e) => {
+      if (dragZoneContainerRef.current) {
+        const rect = dragZoneContainerRef.current.getBoundingClientRect();
+        if (
+          e.clientX < rect.left ||
+          e.clientX > rect.right ||
+          e.clientY < rect.top ||
+          e.clientY > rect.bottom
+        ) {
+          setIsMouseUp(true)
+
+          // вернуть в начальное положение если вышли за пределы
+          requestAnimationFrame(() => {
+            if (overlayElRef.current) {
+              overlayElRef.current.style.transform =
+                `translate(${dragStartRef.current.x}px, ${dragStartRef.current.y}px)`;
+            }
+          })
+          setTimeout(() => {
+            setCurrentWord(null)
+          }, DELETE_DELAY)
+        }
+      }
+    })
+  }, [])
+
 
   function handleMouseDown(e: PointerEvent<HTMLDivElement>) {
     e.preventDefault();
@@ -60,14 +90,20 @@ export const Home = () => {
 
     // размещение в точке взятия
     const offset = {x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY};
-    setOffset(offset);
+    offsetRef.current = offset;
 
-    // setOverlayPos({x: e.clientX - offset.x, y: e.clientY - offset.y});
-    overlayPosRef.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
+    const startPoint: Coord = {x: e.clientX - offset.x, y: e.clientY - offset.y};
+    overlayPosRef.current = startPoint;
 
+    console.log(startPoint);
+    requestAnimationFrame(() => {
+      if (overlayElRef.current) {
+        overlayElRef.current.style.transform =
+          `translate(${startPoint.x}px, ${startPoint.y}px)`;
+      }
+    })
     // начало drag чтобы потом вернуть в это положение
-    setDragStartCoord({x: e.clientX - offset.x, y: e.clientY - offset.y});
-
+    dragStartRef.current = startPoint;
     setCurrentWord(word);
   }
 
@@ -91,7 +127,7 @@ export const Home = () => {
       } else {
         if (overlayElRef.current) {
           overlayElRef.current.style.transform =
-            `translate(${dragStartCoord.x}px, ${dragStartCoord.y}px)`;
+            `translate(${dragStartRef.current.x}px, ${dragStartRef.current.y}px)`;
         }
         setTimeout(() => {
           // отложим удаление чтобы он вернулся назад
@@ -107,13 +143,12 @@ export const Home = () => {
       // были баги, mouseMove может пойматься после mouseUp
       if (overlayElRef.current) {
         overlayElRef.current.style.transform =
-          `translate(${dragStartCoord.x}px, ${dragStartCoord.y}px)`;
+          `translate(${dragStartRef.current.x}px, ${dragStartRef.current.y}px)`;
       }
       return
     }
     requestAnimationFrame(() => {
-      // setOverlayPos({ x: e.clientX - offset.x, y: e.clientY - offset.y });
-      overlayPosRef.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
+      overlayPosRef.current = { x: e.clientX - offsetRef.current.x, y: e.clientY - offsetRef.current.y };
       if (overlayElRef.current) {
         overlayElRef.current.style.transform =
           `translate(${overlayPosRef.current.x}px, ${overlayPosRef.current.y}px)`;
