@@ -1,7 +1,7 @@
 
 import cls from './Home.module.scss'
 import {useEffect, useRef, useState} from "react";
-import type {PointerEvent} from "react";
+import type {PointerEvent, MouseEvent} from "react";
 
 type Word = {
   id: number;
@@ -13,17 +13,16 @@ type Coord = {
   y: number;
 };
 
-const initialWordList: Word[] = [
-  { id: 1, word: "he" },
-  { id: 2, word: "wanted" },
-  { id: 3, word: "to" },
-  { id: 4, word: "go" },
-  { id: 5, word: "in" },
-  { id: 6, word: "the" },
-  { id: 7, word: "zoo" },
-];
 
-const DELETE_DELAY = 500;
+const sentences: string[] = [
+  "he wanted to go in the zoo",
+  "when they decided to go to the party?",
+  "i've been to England",
+  "i used to go to the gym",
+  "Mark tried his best",
+]
+
+const DELETE_DELAY = 300;
 
 
 // TODO: вынести в хуки
@@ -33,7 +32,7 @@ const DELETE_DELAY = 500;
 
 export const Home = () => {
 
-  const [wordList, setWordList] = useState<Word[]>(initialWordList);
+  const [wordList, setWordList] = useState<Word[]>([]);
   const [storageWordList, setStorageWordList] = useState<Word[]>([]);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
 
@@ -48,6 +47,65 @@ export const Home = () => {
 
   const dragStartRef = useRef<Coord>({x:0,y:0});
   const offsetRef = useRef<Coord>({x:0,y:0});
+
+  const [currentSentence, setCurrentSentence] = useState<string>("");
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [isAnswerVisible, setIsAnswerVisible] = useState<boolean>(false);
+
+  // for managing word lists
+  function handleRestart() {
+    setIsCorrect(null)
+    const wordObjectArray = currentSentence.split(' ').map((item, index) => ({
+      id: index,
+      word: item,
+    }))
+    setWordList(wordObjectArray);
+    setStorageWordList([]);
+  }
+
+  function handleSetNewSentence() {
+    setIsAnswerVisible(false)
+    setStorageWordList([]);
+    setIsCorrect(null)
+    const randomIndex = Math.floor(Math.random() * sentences.length);
+    const wordArray = sentences[randomIndex].split(' ')
+    setCurrentSentence(sentences[randomIndex])
+    console.log(sentences[randomIndex])
+    const wordObjectArray = wordArray.map((item, index) => ({
+      id: index,
+      word: item,
+    }))
+    setWordList(wordObjectArray);
+  }
+
+  function handleCheck() {
+    const storageWordArray = storageWordList.map((item) => item.word)
+    let storageString = storageWordArray.join(' ')
+
+    if (storageString === currentSentence) {
+      setIsCorrect(true)
+      return
+    }
+    setIsCorrect(false)
+  }
+
+  function showAnswer() {
+     setIsAnswerVisible(true);
+  }
+
+  // задать начальное слово
+  useEffect(() => {
+    handleSetNewSentence()
+  }, []);
+
+  function handleRemoveWordFromStorage(e: MouseEvent) {
+    const currentWord: Word = {
+      id: Number(e.currentTarget.id),
+      word: e.currentTarget.innerHTML
+    }
+    setWordList(prev => [...prev, currentWord]);
+    setStorageWordList(prev => prev.filter((item) => item.id !== currentWord.id));
+  }
 
 
   // отловить курсор вне drag контейнера
@@ -80,13 +138,15 @@ export const Home = () => {
 
 
   function handleMouseDown(e: PointerEvent<HTMLDivElement>) {
-    e.preventDefault();
     setCurrentWord(null);
     setIsMouseUp(false)
 
     const id = (e.target as HTMLDivElement).closest('li')?.id;
     const word = wordList.find((word) => String(word.id) === id);
     if (!word) return;
+
+    // отменяем выделение текста если нажимаем в li в слове
+    e.preventDefault();
 
     // размещение в точке взятия
     const offset = {x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY};
@@ -95,7 +155,6 @@ export const Home = () => {
     const startPoint: Coord = {x: e.clientX - offset.x, y: e.clientY - offset.y};
     overlayPosRef.current = startPoint;
 
-    console.log(startPoint);
     requestAnimationFrame(() => {
       if (overlayElRef.current) {
         overlayElRef.current.style.transform =
@@ -164,6 +223,36 @@ export const Home = () => {
       ref={dragZoneContainerRef}
       onPointerMove={handleMouseMove}
     >
+      <button
+        className={cls.button}
+        onClick={handleRestart}
+      >try again</button>
+      <button
+        className={cls.button}
+        onClick={handleSetNewSentence}
+      >
+        get new exercise
+      </button>
+      <button
+        onClick={handleCheck}
+        className={cls.button}
+      >
+        check if it's right
+      </button>
+      <button
+        className={cls.button}
+        onClick={showAnswer}
+      >
+        show answer
+      </button>
+
+      {isCorrect === false && <p style={{ color: 'red' }}>it's incorrect! Try again</p>}
+      {isCorrect === true && <p style={{ color: 'green' }}>it's correct! Congratulations!</p>}
+
+      {isAnswerVisible && (<>
+        <p>correct answer: {currentSentence}</p>
+      </>)}
+
       <ul className={cls.list}>
         {wordList.map((word: Word) => (
           <li
@@ -184,7 +273,12 @@ export const Home = () => {
         ref={storageRef}
       >
         {storageWordList.map((word: Word) => (
-          <li key={word.id} className={cls.listItem}>
+          <li
+            key={word.id}
+            id={String(word.id)}
+            onClick={handleRemoveWordFromStorage}
+            className={cls.listItem}
+          >
             {word.word}
           </li>
         ))}
