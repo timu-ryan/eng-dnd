@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "NODE_OPTIONS='--loader ts-node/esm' webpack serve --env mode=development --env port=4000 --config webpack.config.ts",
+    "start:public": "NODE_OPTIONS='--loader ts-node/esm' webpack serve --env mode=development --env port=5000 --config webpack.config.ts --host 0.0.0.0 --allowed-hosts all",
     "build:dev": "NODE_OPTIONS='--loader ts-node/esm' webpack --env mode=development --config webpack.config.ts",
     "build:prod": "NODE_OPTIONS='--loader ts-node/esm' webpack --env mode=production --config webpack.config.ts",
     "build:mobile": "NODE_OPTIONS='--loader ts-node/esm' webpack --env mode=production --env platform=mobile --config webpack.config.ts",
