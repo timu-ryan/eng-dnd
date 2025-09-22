@@ -1,4 +1,5 @@
-import {createContext, useContext, useRef, useState} from "react";
+import {createContext, useContext, useLayoutEffect, useRef, useState} from "react";
+import type { PointerEvent } from "react";
 import cls from './Dnd.module.scss'
 
 
@@ -29,6 +30,16 @@ const Dnd = () => {
 
   const [items, setItems] = useState(words)
 
+  const [currentItemId, setCurrentItemId] = useState<string>('');
+
+  function handleDrop() {
+    setItems(prev => prev.filter((item) => item.id !== currentItemId));
+  }
+
+  function handlePointerDown(id: any) {
+    setCurrentItemId(id);
+  }
+
   return (
     <DndContainer>
       <div className={cls.innerContainer}>
@@ -36,7 +47,10 @@ const Dnd = () => {
 
         <div className={cls.itemscontainer}>
           {items.map((item) => (
-            <DraggableItem key={item.id}>
+            <DraggableItem
+              key={item.id}
+              onPointerDown={() => handlePointerDown(item.id)}
+            >
               <div className={cls.item}>
                 {item.value}
               </div>
@@ -50,6 +64,7 @@ const Dnd = () => {
         <div className={cls.storage}>
           <DndStorage
             className={cls.dndstorage}
+            onDrop={handleDrop}
           >
             <p style={{
               position: 'absolute',
@@ -69,16 +84,21 @@ const Dnd = () => {
 
 export default Dnd
 
-const DndContext = createContext<any>({})
+const DndCurrentNodeContext = createContext<any>({})
+const DndStartPointContext = createContext<any>({})
 
 function DndContextProvider({ children }: any) {
 
   const [currentNode, setCurrentNode] = useState<Node | null>(null)
+  const [startPoint, setStartPoint] = useState<{x: number, y: number} | null>(null)
+  const [offset, setOffset] = useState<{x: number, y: number} | null>(null)
 
   return (
-    <DndContext.Provider value={{ currentNode, setCurrentNode }}>
-      {children}
-    </DndContext.Provider>
+    <DndCurrentNodeContext.Provider value={{ currentNode, setCurrentNode }}>
+      <DndStartPointContext.Provider value={{ startPoint, setStartPoint, offset, setOffset }}>
+        {children}
+      </DndStartPointContext.Provider>
+    </DndCurrentNodeContext.Provider>
   )
 }
 
@@ -87,39 +107,79 @@ function DndContainer(props: any) {
     children,
   } = props;
 
-  function handlePointerDown() {
-    console.log('down')
-  }
-
-  function handlePointerUp() {
-    console.log('up')
-  }
-
   return (
     <DndContextProvider>
-      <div
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-      >
+      <DndContainerInner>
         {children}
-        <DraggableItemOverlay />
-      </div>
+      </DndContainerInner>
     </DndContextProvider>
   )
 }
 
-function DraggableItemOverlay(props: any) {
+function DndContainerInner(props: any) {
+  const {
+    children,
+  } = props;
 
-  const ctx = useContext(DndContext);
+  const { setStartPoint, setOffset, offset } = useContext(DndStartPointContext)
+  const { setCurrentNode } = useContext(DndCurrentNodeContext)
+  const overlayElRef = useRef<HTMLDivElement | null>(null)
 
+  function handlePointerDown(e: PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setStartPoint({ x: e.clientX, y: e.clientY });
+
+    setOffset({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY });
+  }
+
+  function handlePointerUp() {
+    setStartPoint(null);
+    setCurrentNode(null);
+    setOffset(null);
+  }
+
+  function handlePointerMove(e: PointerEvent<HTMLDivElement>) {
+    if (!overlayElRef.current) return
+
+    overlayElRef.current.style.transform = `translate(${e.clientX - offset.x}px, ${e.clientY - offset.y}px)`;
+  }
 
   return (
     <div
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerMove={handlePointerMove}
+    >
+      <DraggableItemOverlay ref={overlayElRef}/>
+      {children}
+    </div>
+  )
+}
+
+
+function DraggableItemOverlay(props: any) {
+  const {
+    ref,
+  } = props;
+
+  const currentNodeCtx = useContext(DndCurrentNodeContext);
+  const startPointCtx = useContext(DndStartPointContext)
+
+  const {startPoint, offset} = startPointCtx
+
+  if (!startPointCtx.startPoint) return null
+
+  return (
+    <div
+      ref={ref}
       style={{
         position: "fixed",
+        top: 0,
+        left: 0,
+        transform: `translate(${startPoint.x - offset.x}px, ${startPoint.y - offset.y}px)`,
       }}
     >
-      {ctx.currentNode}
+      {currentNodeCtx.currentNode}
     </div>
   )
 }
@@ -127,13 +187,19 @@ function DraggableItemOverlay(props: any) {
 function DraggableItem(props: any) {
   const {
     children,
+    onPointerDown,
   } = props;
 
-  const ctx = useContext(DndContext);
+  const currentNodeCtx = useContext(DndCurrentNodeContext);
+  const startPointCtx = useContext(DndStartPointContext);
 
   const handlePointerDown = (e: any) => {
     e.preventDefault();
-    ctx.setCurrentNode(children);
+    currentNodeCtx.setCurrentNode(children);
+    startPointCtx.setStartPoint({x: e.clientX, y: e.clientY});
+
+    // дополнительные действия, которые нужно сделать при взятии элемента
+    onPointerDown();
   }
 
   return (
@@ -151,9 +217,10 @@ function DndStorage(props: any) {
   const {
     children,
     className,
+    onDrop,
   } = props;
 
-  const ctx = useContext(DndContext);
+  const ctx = useContext(DndCurrentNodeContext);
 
   const [arrivedNodes, setArrivedNodes] = useState<any>([]);
 
@@ -162,6 +229,9 @@ function DndStorage(props: any) {
       return;
     }
     setArrivedNodes((prev: any) => [...prev, ctx.currentNode]);
+
+    // дополнительные действия, которые нужно делать при попадании элемента в storage
+    onDrop();
   }
 
   return (
