@@ -5,6 +5,7 @@ import { LazyAbout } from "@/pages/about/About.lazy";
 import { Shop } from "@/pages/shop";
 import { Suspense } from "react";
 import {Home} from "@/pages/home/Home";
+import {Dnd} from "@/pages/dnd";
 import './index.module.scss'
 
 const root = document.getElementById('root');
@@ -26,6 +27,10 @@ const router = createBrowserRouter([
       {
         path: '/shop',
         element: <Suspense fallback={'Loading...'}><Shop /></Suspense>
+      },
+      {
+        path: '/dnd',
+        element: <Suspense fallback={'Loading...'}><Dnd /></Suspense>
       },
     ]
   }

@@ -20,6 +20,7 @@ function Header() {
       <Link to="/" className={classes.link}>Main</Link>
       <Link to="/shop" className={classes.link}>Shop</Link>
       <Link to="/about" className={classes.link}>About</Link>
+      <Link to="/dnd" className={classes.link}>Dnd</Link>
     </header>
   )
 }

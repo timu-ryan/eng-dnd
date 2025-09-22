@@ -1,0 +1,40 @@
+
+.innerContainer {
+  height: 400px;
+  border: 1px solid grey;
+  margin: 20px 50px 0;
+}
+
+.dndstorage {
+  display: flex;
+  align-items: start;
+  position: relative;
+}
+
+.itemscontainer {
+  display: flex;
+  gap: 10px;
+}
+
+.item {
+  border: 1px solid grey;
+  border-radius: 4px;
+  padding: 10px;
+
+  &:hover {
+    cursor: grab;
+  }
+
+}
+
+.storage {
+  border: 1px solid grey;
+  margin: 40px 10px 0;
+  border-radius: 4px;
+  height: 200px;
+}
+
+p {
+  margin: 0;
+  padding: 0;
+}

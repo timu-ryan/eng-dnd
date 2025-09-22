@@ -1,16 +1,23 @@
 
 import cls from './Home.module.scss'
-import {useEffect, useRef, useState} from "react";
-import type {PointerEvent, MouseEvent} from "react";
+import {SyntheticEvent, useEffect, useRef, useState} from "react";
+import type {MouseEvent} from "react";
+// import { DndContainer } from '@/features/dnd/DndContainer'
+// import { DndOverlayItem } from '@/features/dnd/DndOverlayItem'
+// import {useDndDropZone} from "@/features/dnd/useDndContainer";
+// import { usePointerDnd } from "@/features/dnd/usePointerDnd";
+// import { DndStorage } from "@/features/dnd/DndStorage";
+// import {DndItem} from "@/features/dnd/DndItem";
+
+
+
+import { DndContainer } from '@/features/dnd/DndContainer';
+import { DndItem } from '@/features/dnd/DndItem';
+import { StorageBox } from '@/features/dnd/StorageBox';
 
 type Word = {
   id: number;
   word: string;
-};
-
-type Coord = {
-  x: number;
-  y: number;
 };
 
 
@@ -36,18 +43,6 @@ export const Home = () => {
   const [storageWordList, setStorageWordList] = useState<Word[]>([]);
   const [currentWord, setCurrentWord] = useState<Word | null>(null);
 
-  const storageRef = useRef<HTMLUListElement>(null);
-  const dragZoneContainerRef = useRef<HTMLDivElement>(null);
-
-  const overlayPosRef = useRef<Coord>({ x: 0, y: 0 });
-  const overlayElRef = useRef<HTMLDivElement | null>(null);
-
-  // для возврата слова в начальное положение, если оно не попало в storage
-  const [isMouseUp, setIsMouseUp] = useState<boolean>(false);
-
-  const dragStartRef = useRef<Coord>({x:0,y:0});
-  const offsetRef = useRef<Coord>({x:0,y:0});
-
   const [currentSentence, setCurrentSentence] = useState<string>("");
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [isAnswerVisible, setIsAnswerVisible] = useState<boolean>(false);
@@ -70,7 +65,6 @@ export const Home = () => {
     const randomIndex = Math.floor(Math.random() * sentences.length);
     const wordArray = sentences[randomIndex].split(' ')
     setCurrentSentence(sentences[randomIndex])
-    console.log(sentences[randomIndex])
     const wordObjectArray = wordArray.map((item, index) => ({
       id: index,
       word: item,
@@ -108,196 +102,191 @@ export const Home = () => {
     setStorageWordList(prev => prev.filter((item) => item.id !== currentWord.id));
   }
 
+  // function setOverlayTransition(ms: number) {
+  //   const el = overlayElRef.current;
+  //   if (!el) return;
+  //   el.style.transition = ms
+  //     ? `transform ${DELETE_DELAY}ms cubic-bezier(.2,.7,.3,1)`
+  //     : 'none';
+  // }
 
-  // отловить курсор вне drag контейнера
-  useEffect(() => {
-    window.addEventListener("pointermove", (e) => {
-      if (dragZoneContainerRef.current) {
-        const rect = dragZoneContainerRef.current.getBoundingClientRect();
-        if (
-          e.clientX < rect.left ||
-          e.clientX > rect.right ||
-          e.clientY < rect.top ||
-          e.clientY > rect.bottom
-        ) {
-          setIsMouseUp(true)
+  // function snapBackToStart() {
+  //   setIsReturning(true);
+  //
+  //   const el = overlayElRef.current;
+  //   if (!el) return;
+  //   // включим transition на КАДР ПОЗЖЕ, чтобы анимация стабильно сработала
+  //   setOverlayTransition(0);
+  //   // текущая позиция уже стоит в style.transform
+  //   requestAnimationFrame(() => {
+  //     setOverlayTransition(DELETE_DELAY);
+  //     moveOverlayTo(dragStartRef.current);
+  //     window.setTimeout(() => {
+  //       setCurrentWord(null);
+  //       setOverlayTransition(0); // выключим обратно, чтобы следующий drag был без анимаций
+  //       setIsReturning(false);
+  //     }, DELETE_DELAY);
+  //   });
+  // }
+  //
+  // function moveOverlayTo(p: Coord) {
+  //   if (overlayElRef.current) {
+  //     overlayElRef.current.style.transform = `translate3d(${p.x}px, ${p.y}px, 0)`;
+  //   }
+  // }
+  //
+  // useEffect(() => {
+  //   if (isOutsideContainer && currentWord && !isReturning) {
+  //     snapBackToStart();
+  //   }
+  // }, [isOutsideContainer, currentWord]);
 
-          // вернуть в начальное положение если вышли за пределы
-          requestAnimationFrame(() => {
-            if (overlayElRef.current) {
-              overlayElRef.current.style.transform =
-                `translate(${dragStartRef.current.x}px, ${dragStartRef.current.y}px)`;
-            }
-          })
-          setTimeout(() => {
-            setCurrentWord(null)
-          }, DELETE_DELAY)
-        }
-      }
-    })
-  }, [])
-
-
-  function handleMouseDown(e: PointerEvent<HTMLDivElement>) {
-    setCurrentWord(null);
-    setIsMouseUp(false)
-
-    const id = (e.target as HTMLDivElement).closest('li')?.id;
-    const word = wordList.find((word) => String(word.id) === id);
-    if (!word) return;
-
-    // отменяем выделение текста если нажимаем в li в слове
-    e.preventDefault();
-
-    // размещение в точке взятия
-    const offset = {x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY};
-    offsetRef.current = offset;
-
-    const startPoint: Coord = {x: e.clientX - offset.x, y: e.clientY - offset.y};
-    overlayPosRef.current = startPoint;
-
-    requestAnimationFrame(() => {
-      if (overlayElRef.current) {
-        overlayElRef.current.style.transform =
-          `translate(${startPoint.x}px, ${startPoint.y}px)`;
-      }
-    })
-    // начало drag чтобы потом вернуть в это положение
-    dragStartRef.current = startPoint;
-    setCurrentWord(word);
-  }
-
-  function handleMouseUp(e: PointerEvent<HTMLDivElement>) {
-    if (!currentWord) return;
-
-    setIsMouseUp(true)
-    if (storageRef.current) {
-      const rect = storageRef.current.getBoundingClientRect();
-      // если отпустить внутри storage
-      if (
-        e.clientX >= rect.left &&
-        e.clientX <= rect.right &&
-        e.clientY >= rect.top &&
-        e.clientY <= rect.bottom
-      ) {
-        setStorageWordList((prev) => [...prev, currentWord]);
-        setWordList((prev) => prev.filter((w) => w.id !== currentWord.id));
-        // удалим сразу
-        setCurrentWord(null);
-      } else {
-        if (overlayElRef.current) {
-          overlayElRef.current.style.transform =
-            `translate(${dragStartRef.current.x}px, ${dragStartRef.current.y}px)`;
-        }
-        setTimeout(() => {
-          // отложим удаление чтобы он вернулся назад
-          setCurrentWord(null);
-        }, DELETE_DELAY)
-      }
-    }
-  }
-
-  function handleMouseMove(e: PointerEvent<HTMLDivElement>) {
-
-    if (!currentWord || isMouseUp) {
-      // были баги, mouseMove может пойматься после mouseUp
-      if (overlayElRef.current) {
-        overlayElRef.current.style.transform =
-          `translate(${dragStartRef.current.x}px, ${dragStartRef.current.y}px)`;
-      }
-      return
-    }
-    requestAnimationFrame(() => {
-      overlayPosRef.current = { x: e.clientX - offsetRef.current.x, y: e.clientY - offsetRef.current.y };
-      if (overlayElRef.current) {
-        overlayElRef.current.style.transform =
-          `translate(${overlayPosRef.current.x}px, ${overlayPosRef.current.y}px)`;
-      }
-    })
-  }
+  //
+  // function handleMouseDown(e: React.PointerEvent<HTMLDivElement>) {
+  //   const id = (e.target as HTMLDivElement).closest('li')?.id;
+  //   const word = wordList.find((word) => String(word.id) === id);
+  //   if (!word) return;
+  //
+  //   // отменяем выделение текста если нажимаем в li в слове
+  //   e.preventDefault();
+  //
+  //   // отключаем анимации когда мышка зажата
+  //   setOverlayTransition(0);
+  //
+  //   // размещение в точке взятия
+  //   const offset: Coord = {x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY};
+  //   offsetRef.current = offset;
+  //   const startPoint: Coord = {x: e.clientX - offset.x, y: e.clientY - offset.y};
+  //   dragStartRef.current = startPoint;
+  //
+  //   moveOverlayTo(startPoint)
+  //   setCurrentWord(word);
+  // }
+  //
+  // function handleMouseUp(e: React.PointerEvent<HTMLDivElement>) {
+  //   if (!currentWord || isReturning) return;
+  //   if (storageRef.current) {
+  //     const rect = storageRef.current.getBoundingClientRect();
+  //     // если отпустить внутри storage
+  //     if (
+  //       e.clientX >= rect.left &&
+  //       e.clientX <= rect.right &&
+  //       e.clientY >= rect.top &&
+  //       e.clientY <= rect.bottom
+  //     ) {
+  //       setStorageWordList((prev) => [...prev, currentWord]);
+  //       setWordList((prev) => prev.filter((w) => w.id !== currentWord.id));
+  //       // удалим сразу
+  //       setCurrentWord(null);
+  //       return;
+  //     }
+  //
+  //     snapBackToStart();
+  //
+  //   }
+  // }
+  //
+  // function handleMouseMove(e: React.PointerEvent<HTMLDivElement>) {
+  //   if (isReturning) return
+  //   if (!isOutsideContainer) {
+  //     // были баги, mouseMove может пойматься после mouseUp
+  //     moveOverlayTo({ x: e.clientX - offsetRef.current.x, y: e.clientY - offsetRef.current.y });
+  //     return
+  //   }
+  //   snapBackToStart();
+  // }
 
   return (
-    <div
-      className={cls.container}
-      onPointerUp={handleMouseUp}
-      onPointerDown={handleMouseDown}
-      ref={dragZoneContainerRef}
-      onPointerMove={handleMouseMove}
-    >
-      <button
-        className={cls.button}
-        onClick={handleRestart}
-      >try again</button>
-      <button
-        className={cls.button}
-        onClick={handleSetNewSentence}
-      >
-        get new exercise
-      </button>
-      <button
-        onClick={handleCheck}
-        className={cls.button}
-      >
-        check if it's right
-      </button>
-      <button
-        className={cls.button}
-        onClick={showAnswer}
-      >
-        show answer
-      </button>
+    // <DndContainer
+    //   className={cls.container}
+    // >
+    //   <button
+    //     className={cls.button}
+    //     onClick={handleRestart}
+    //   >try again</button>
+    //   <button
+    //     className={cls.button}
+    //     onClick={handleSetNewSentence}
+    //   >
+    //     get new exercise
+    //   </button>
+    //   <button
+    //     onClick={handleCheck}
+    //     className={cls.button}
+    //   >
+    //     check if it's right
+    //   </button>
+    //   <button
+    //     className={cls.button}
+    //     onClick={showAnswer}
+    //   >
+    //     show answer
+    //   </button>
+    //
+    //   {isCorrect === false && <p style={{ color: 'red' }}>it's incorrect! Try again</p>}
+    //   {isCorrect === true && <p style={{ color: 'green' }}>it's correct! Congratulations!</p>}
+    //
+    //   {isAnswerVisible && (<>
+    //     <p>correct answer: {currentSentence}</p>
+    //   </>)}
+    //
+    //   <ul className={cls.list}>
+    //     {wordList.map((word: Word) => (
+    //       // TODO: DnD item
+    //       <DndItem key={word.id}>
+    //         <li
+    //           key={word.id}
+    //           id={String(word.id)}
+    //           className={cls.listItem}
+    //           style={{
+    //             opacity: word.id === currentWord?.id ? 0.5 : 1,
+    //           }}
+    //         >
+    //           {word.word}
+    //         </li>
+    //       </DndItem>
+    //     ))}
+    //   </ul>
+    //
+    //   <DndStorage>
+    //     <ul
+    //       className={cls.storage}
+    //     >
+    //       {storageWordList.map((word: Word) => (
+    //         <li
+    //           key={word.id}
+    //           id={String(word.id)}
+    //           onClick={handleRemoveWordFromStorage}
+    //           className={cls.listItem}
+    //         >
+    //           {word.word}
+    //         </li>
+    //       ))}
+    //     </ul>
+    //   </DndStorage>
+    //
+    //   {/*<DndOverlayItem*/}
+    //   {/*  // isVisible={!!currentWord}*/}
+    //   {/*>*/}
+    //   {/*  <div className={cls.listItem}>*/}
+    //   {/*    {currentWord?.word}*/}
+    //   {/*  </div>*/}
+    //   {/*</DndOverlayItem>*/}
+    // </DndContainer>
 
-      {isCorrect === false && <p style={{ color: 'red' }}>it's incorrect! Try again</p>}
-      {isCorrect === true && <p style={{ color: 'green' }}>it's correct! Congratulations!</p>}
 
-      {isAnswerVisible && (<>
-        <p>correct answer: {currentSentence}</p>
-      </>)}
-
-      <ul className={cls.list}>
-        {wordList.map((word: Word) => (
-          <li
-            key={word.id}
-            id={String(word.id)}
-            className={cls.listItem}
-            style={{
-              opacity: word.id === currentWord?.id ? 0.5 : 1,
-            }}
-          >
-            {word.word}
-          </li>
+    <DndContainer className="p-4">
+      <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+        {['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta'].map((word, i) => (
+          <DndItem key={i}>
+            <button style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd' }}>{word}</button>
+          </DndItem>
         ))}
-      </ul>
+      </div>
 
-      <ul
-        className={cls.storage}
-        ref={storageRef}
-      >
-        {storageWordList.map((word: Word) => (
-          <li
-            key={word.id}
-            id={String(word.id)}
-            onClick={handleRemoveWordFromStorage}
-            className={cls.listItem}
-          >
-            {word.word}
-          </li>
-        ))}
-      </ul>
+      <div style={{ height: 16 }} />
 
-      {currentWord && (
-        <div
-          className={cls.overlay}
-          ref={overlayElRef}
-          style={{
-            transition: isMouseUp ? `transform ${DELETE_DELAY}ms` : "none",
-          }}
-        >
-          <div className={cls.listItem}>
-            {currentWord.word}
-          </div>
-        </div>
-      )}
-    </div>
+      <StorageBox>Drop here</StorageBox>
+    </DndContainer>
   )
 }
